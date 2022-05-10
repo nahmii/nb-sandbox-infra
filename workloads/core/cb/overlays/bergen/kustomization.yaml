@@ -1,0 +1,33 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: test
+resources:
+  - ../../base
+  - validators-configmap.yaml
+  - validator-1-key-sealedsecret.yaml
+  - validator-2-key-sealedsecret.yaml
+  - postgres-sealedsecret.yaml
+  - postgres-storage.yaml
+  - node-storage.yaml
+  - validator-storage.yaml
+  - basicauth-sealedsecret.yaml
+  - blockscout-sealedsecret.yaml
+  - grafana-configmap.yaml
+  - ingress.yaml
+  - loadbalancer.yaml
+configMapGenerator:
+  - name: besu-config-toml-configmap
+    files:
+      - config.toml
+  - name: besu-genesis-configmap
+    files:
+      - genesis.json
+  - name: blockscout
+    envs:
+      - blockscout.env
+
+images:
+  - name: 856572510817.dkr.ecr.eu-central-1.amazonaws.com/besu-frontend
+    newTag: efca1db80627f9264660c0268e78af933d721e26
+  - name: hyperledger/besu
+    newTag: 22.1.3

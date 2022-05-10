@@ -1,0 +1,71 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: blockscout
+  labels:
+    app: blockscout
+spec:
+  selector:
+    app: blockscout
+  ports:
+  - name: http
+    protocol: TCP
+    port: 4000
+    targetPort: 4000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: blockscout
+  labels:
+    app: blockscout
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: blockscout
+  template:
+    metadata:
+      labels:
+        app: blockscout
+    spec:
+      initContainers:
+      - name: migrate
+        image: blockscout/blockscout:latest
+        ports:
+          - containerPort: 4000
+        command: [/bin/sh]
+        args: ["-c", "mix do ecto.create, ecto.migrate"]
+        env:
+          - name: DATABASE_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                key: POSTGRES_PASSWORD
+                name: blockscout-postgres
+          - name: DATABASE_URL
+            value: postgresql://$(DATABASE_USER):$(DATABASE_PASSWORD)@$(DATABASE_HOST):$(DATABASE_PORT)/$(DATABASE_NAME)?ssl=false
+        envFrom:
+          - configMapRef:
+              name: blockscout
+      containers:
+      - name: blockscout
+        image: blockscout/blockscout:latest
+        ports:
+          - containerPort: 4000
+        command: [/bin/sh]
+        args: ["-c", "mix phx.server"]
+        env:
+          - name: DATABASE_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                key: POSTGRES_PASSWORD
+                name: blockscout-postgres
+          - name: DATABASE_URL
+            value: postgresql://$(DATABASE_USER):$(DATABASE_PASSWORD)@$(DATABASE_HOST):$(DATABASE_PORT)/$(DATABASE_NAME)?ssl=false
+        envFrom:
+          - configMapRef:
+              name: blockscout
+          - secretRef:
+              name: blockscout

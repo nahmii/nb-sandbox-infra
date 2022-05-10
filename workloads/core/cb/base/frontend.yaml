@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: besu-frontend
+spec:
+  ports:
+  - port: 80
+    targetPort: 80
+  selector:
+    app: besu-frontend
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: besu-frontend
+spec:
+  replicas: 1
+  revisionHistoryLimit: 0
+  selector:
+    matchLabels:
+      app: besu-frontend
+  template:
+    metadata:
+      labels:
+        app: besu-frontend
+    spec:
+      containers:
+        - name: besu-frontend
+          image: 856572510817.dkr.ecr.eu-central-1.amazonaws.com/besu-frontend
+          ports:
+            - containerPort: 80

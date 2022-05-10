@@ -1,0 +1,106 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cb-ingress
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    kubernetes.io/tls-acme: "true"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: cb-basicauth
+    nginx.ingress.kubernetes.io/auth-realm: 'Authentication Required'
+spec:
+  tls:
+    - secretName: bergen.nahmii.io
+      hosts:
+        - bergen.nahmii.io
+    - secretName: rpc.bergen.nahmii.io
+      hosts:
+        - rpc.bergen.nahmii.io
+    - secretName: rpcvalidator1.bergen.nahmii.io
+      hosts:
+        - rpcvalidator1.bergen.nahmii.io
+    - secretName: ws.bergen.nahmii.io
+      hosts:
+        - ws.bergen.nahmii.io
+    - secretName: graphql.bergen.nahmii.io
+      hosts:
+        - graphql.bergen.nahmii.io
+    - secretName: blockscout.bergen.nahmii.io
+      hosts:
+        - blockscout.bergen.nahmii.io
+    - secretName: grafana.bergen.nahmii.io
+      hosts:
+        - grafana.bergen.nahmii.io
+  rules:
+    - host: bergen.nahmii.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: besu-frontend
+                port:
+                  number: 80
+    - host: rpcvalidator1.bergen.nahmii.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: besu-validator1
+                port:
+                  number: 8545
+    - host: rpc.bergen.nahmii.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: node
+                port:
+                  number: 8545
+    - host: ws.bergen.nahmii.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: node
+                port:
+                  number: 8546
+    - host: graphql.bergen.nahmii.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: node
+                port:
+                  number: 8547
+    - host: grafana.bergen.nahmii.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 3000
+    - host: blockscout.bergen.nahmii.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: blockscout
+                port:
+                  number: 4000

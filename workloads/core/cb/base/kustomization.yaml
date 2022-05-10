@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - frontend.yaml
+  - blockscout.yaml
+  - blockscout-postgres.yaml
+  - node.yaml
+  - validator-1.yaml
+  - validator-2.yaml
+  - grafana.yaml
+  - prom.yaml
+  - prometheus-configmap.yaml
+configMapGenerator:
+  - name: blockscout-postgres
+    envs:
+      - postgres.env

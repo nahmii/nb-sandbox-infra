@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "besu-clique-config": "^1.0.5"
+  }
+}

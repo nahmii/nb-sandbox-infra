@@ -1,0 +1,189 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: besu-validator1
+  labels:
+    app: validator1
+spec:
+  type: ClusterIP
+  selector:
+    app: validator1
+  ports:
+    - port: 30303
+      targetPort: 30303
+      protocol: UDP
+      name: discovery
+    - port: 30303
+      targetPort: 30303
+      protocol: TCP
+      name: rlpx
+    - port: 8545
+      targetPort: 8545
+      protocol: TCP
+      name: json-rpc
+    - port: 8546
+      targetPort: 8546
+      protocol: TCP
+      name: ws
+    - port: 8547
+      targetPort: 8547
+      protocol: TCP
+      name: graphql
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: validator1-sa
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: validator1-key-read-role
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: [ besu-validator1-key ]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: validator1-rb
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: validator1-key-read-role
+subjects:
+  - kind: ServiceAccount
+    name: validator1-sa
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: validator1
+  labels:
+    app: validator1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: validator1
+  serviceName: besu-validator1
+  template:
+    metadata:
+      labels:
+        app: validator1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9545"
+        prometheus.io/path: "/metrics"
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 3000
+        fsGroup: 2000
+        fsGroupChangePolicy: "OnRootMismatch"
+      serviceAccountName: validator1-sa
+      containers:
+        - name: validator1
+          image: hyperledger/besu:latest
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 100m
+              memory: 1024Mi
+            limits:
+              cpu: 500m
+              memory: 2048Mi
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: VALIDATOR1_PUBKEY
+              valueFrom:
+                configMapKeyRef:
+                  name: besu-validators-configmap
+                  key: validator1PubKey
+            - name: VALIDATOR2_PUBKEY
+              valueFrom:
+                configMapKeyRef:
+                  name: besu-validators-configmap
+                  key: validator2PubKey
+          volumeMounts:
+            - name: key
+              mountPath: /secrets
+              readOnly: true
+            - name: genesis-config
+              mountPath: /etc/genesis
+              readOnly: true
+            - name: config-toml
+              mountPath: /etc/besu
+              readOnly: true
+            - name: data
+              mountPath: /data
+          ports:
+            - containerPort: 8545
+              name: json-rpc
+              protocol: TCP
+            - containerPort: 8546
+              name: ws
+              protocol: TCP
+            - containerPort: 30303
+              name: rlpx
+              protocol: TCP
+            - containerPort: 30303
+              name: discovery
+              protocol: UDP
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              echo "nodes-allowlist=[]" > /data/permissions_config.toml \
+              && \
+              exec /opt/besu/bin/besu \
+                --node-private-key-file=/secrets/key \
+                --config-file=/etc/besu/config.toml \
+                --Xnat-kube-service-name=besu-validator1 \
+                --logging=TRACE \
+                --permissions-nodes-config-file-enabled=true \
+                --permissions-nodes-config-file=/data/permissions_config.toml \
+                --bootnodes="" \
+                --min-gas-price=0
+          livenessProbe:
+            httpGet:
+              path: /liveness
+              port: 8545
+            initialDelaySeconds: 60
+            periodSeconds: 30
+      volumes:
+        - name: key
+          secret:
+            secretName: besu-validator1-key
+        - name: genesis-config
+          configMap:
+            name: besu-genesis-configmap
+        - name: config-toml
+          configMap:
+            name: besu-config-toml-configmap
+        - name: permissions-toml
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: "gp2-ext4"
+        resources:
+          requests:
+            storage: '10Gi'
